@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>エリートモータース 予約ページ</title>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+const LIFF_ID = "ここにLIFF ID";
+let lineUserId = "";
+
+async function initLine() {
+
+  try {
+
+    await liff.init({
+      liffId: LIFF_ID
+    });
+
+    if (!liff.isLoggedIn()) {
+      liff.login();
+      return;
+    }
+
+    const profile =
+      await liff.getProfile();
+
+    lineUserId = profile.userId;
+
+    console.log(
+      "LINEユーザーID:",
+      lineUserId
+    );
+
+  } catch (error) {
+
+    console.error(
+      "LINE初期化エラー:",
+      error
+    );
+
+  }
+}
+
+initLine();
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Noto Sans JP",
+    "Yu Gothic",
+    sans-serif;
+  background: #f5f7f9;
+  color: #333;
+}
+
+.container {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.header {
+  background: #06c755;
+  color: white;
+  padding: 22px 18px;
+  border-radius: 0 0 18px 18px;
+  margin-bottom: 18px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.header p {
+  margin: 7px 0 0;
+  font-size: 14px;
+}
+
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.card h2 {
+  font-size: 17px;
+  margin: 0 0 15px;
+}
+
+label {
+  display: block;
+  font-weight: bold;
+  font-size: 14px;
+  margin-bottom: 7px;
+}
+
+.required {
+  color: #e53935;
+  font-size: 12px;
+  margin-left: 5px;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  font-size: 16px;
+  background: #fff;
+}
+
+textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.radio-group {
+  display: grid;
+  gap: 9px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.radio-option input {
+  width: auto;
+  margin-right: 9px;
+}
+
+.time-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.time-option {
+  position: relative;
+}
+
+.time-option input {
+  position: absolute;
+  opacity: 0;
+}
+
+.time-option label {
+  display: block;
+  text-align: center;
+  padding: 11px 5px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  font-weight: normal;
+  cursor: pointer;
+}
+
+.time-option input:checked + label {
+  background: #06c755;
+  color: white;
+  border-color: #06c755;
+}
+
+.submit-btn {
+  width: 100%;
+  border: none;
+  background: #06c755;
+  color: white;
+  padding: 16px;
+  border-radius: 12px;
+  font-size: 17px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.submit-btn:disabled {
+  background: #aaa;
+}
+
+.note {
+  font-size: 12px;
+  color: #777;
+  margin-top: 5px;
+}
+
+.success {
+  display: none;
+  text-align: center;
+  padding: 30px 15px;
+}
+
+.success h2 {
+  color: #06c755;
+}
+
+.loading {
+  display: none;
+  text-align: center;
+  margin: 15px 0;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <div class="container">
+    <h1>🚗 エリートモータース 予約ページ</h1>
+    <p>タイヤ交換・オイル交換のご予約</p>
+  </div>
+</div>
+
+<div class="container">
+
+<form id="reservationForm">
+
+  <!-- メニュー -->
+  <div class="card">
+    <h2>① ご希望の作業</h2>
+
+    <div class="form-group">
+      <label>メニュー<span class="required">必須</span></label>
+
+      <div class="radio-group">
+        <label class="radio-option">
+          <input type="radio" name="menu" value="タイヤ交換" required>
+          タイヤ交換
+        </label>
+
+        <label class="radio-option">
+          <input type="radio" name="menu" value="オイル交換">
+          オイル交換
+        </label>
+
+        <label class="radio-option">
+          <input type="radio" name="menu" value="タイヤ交換・オイル交換">
+          タイヤ交換＋オイル交換
+        </label>
+      </div>
+    </div>
+
+    <div class="form-group" id="tireArea">
+      <label>タイヤ交換内容</label>
+
+      <div class="radio-group">
+        <label class="radio-option">
+          <input type="radio" name="tire" value="夏→冬">
+          夏 → 冬
+        </label>
+
+        <label class="radio-option">
+          <input type="radio" name="tire" value="冬→夏">
+          冬 → 夏
+        </label>
+      </div>
+    </div>
+
+    <div class="form-group" id="oilArea">
+      <label>オイル交換内容</label>
+      <input
+        type="text"
+        name="oil"
+        placeholder="例：エンジンオイル交換"
+      >
+    </div>
+  </div>
+
+
+  <!-- 車両情報 -->
+  <div class="card">
+    <h2>② お車について</h2>
+
+    <div class="form-group">
+      <label>メーカー<span class="required">必須</span></label>
+      <input
+        type="text"
+        name="maker"
+        placeholder="例：トヨタ"
+        required
+      >
+    </div>
+
+    <div class="form-group">
+      <label>車種<span class="required">必須</span></label>
+      <input
+        type="text"
+        name="model"
+        placeholder="例：プリウス"
+        required
+      >
+    </div>
+
+    <div class="form-group">
+      <label>走行距離</label>
+      <input
+        type="number"
+        name="mileage"
+        placeholder="例：50000"
+      >
+      <div class="note">※任意項目です</div>
+    </div>
+
+    <div class="form-group">
+      <label>ナンバー</label>
+      <input
+        type="text"
+        name="plate"
+        placeholder="例：長野300 あ 1234"
+      >
+      <div class="note">※任意項目です</div>
+    </div>
+  </div>
+
+
+  <!-- 希望日時 -->
+  <div class="card">
+    <h2>③ ご希望日時</h2>
+
+    <p class="note">
+      第1希望は必須です。第2・第3希望は任意です。
+    </p>
+
+    <!-- 第1希望 -->
+    <div class="form-group">
+      <label>第1希望日<span class="required">必須</span></label>
+      <input type="date" name="d1" required>
+    </div>
+
+    <div class="form-group">
+      <label>第1希望時間<span class="required">必須</span></label>
+
+      <div class="time-grid">
+
+        <div class="time-option">
+          <input type="radio" id="t1_0830" name="t1" value="8:30" required>
+          <label for="t1_0830">8:30</label>
+        </div>
+
+        <div class="time-option">
+          <input type="radio" id="t1_0900" name="t1" value="9:00">
+          <label for="t1_0900">9:00</label>
+        </div>
+
+        <div class="time-option">
+          <input type="radio" id="t1_0930" name="t1" value="9:30">
+          <label for="t1_0930">9:30</label>
+        </div>
+
+        <div class="time-option">
+          <input type="radio" id="t1_1030" name="t1" value="10:30">
+          <label for="t1_1030">10:30</label>
+        </div>
+
+        <div class="time-option">
+          <input type="radio" id="t1_1430" name="t1" value="14:30">
+          <label for="t1_1430">14:30</label>
+        </div>
+
+        <div class="time-option">
+          <input type="radio" id="t1_1530" name="t1" value="15:30">
+          <label for="t1_1530">15:30</label>
+        </div>
+
+        <div class="time-option">
+          <input type="radio" id="t1_1600" name="t1" value="16:00">
+          <label for="t1_1600">16:00</label>
+        </div>
+
+        <div class="time-option">
+          <input type="radio" id="t1_1630" name="t1" value="16:30">
+          <label for="t1_1630">16:30</label>
+        </div>
+
+      </div>
+    </div>
+
+
+    <!-- 第2希望 -->
+    <div class="form-group">
+      <label>第2希望日</label>
+      <input type="date" name="d2">
+    </div>
+
+    <div class="form-group">
+      <label>第2希望時間</label>
+
+      <select name="t2">
+        <option value="">選択してください</option>
+        <option value="8:30">8:30</option>
+        <option value="9:00">9:00</option>
+        <option value="9:30">9:30</option>
+        <option value="10:30">10:30</option>
+        <option value="14:30">14:30</option>
+        <option value="15:30">15:30</option>
+        <option value="16:00">16:00</option>
+        <option value="16:30">16:30</option>
+      </select>
+    </div>
+
+
+    <!-- 第3希望 -->
+    <div class="form-group">
+      <label>第3希望日</label>
+      <input type="date" name="d3">
+    </div>
+
+    <div class="form-group">
+      <label>第3希望時間</label>
+
+      <select name="t3">
+        <option value="">選択してください</option>
+        <option value="8:30">8:30</option>
+        <option value="9:00">9:00</option>
+        <option value="9:30">9:30</option>
+        <option value="10:30">10:30</option>
+        <option value="14:30">14:30</option>
+        <option value="15:30">15:30</option>
+        <option value="16:00">16:00</option>
+        <option value="16:30">16:30</option>
+      </select>
+    </div>
+
+  </div>
+
+
+  <!-- お客様情報 -->
+  <div class="card">
+    <h2>④ お客様情報</h2>
+
+    <div class="form-group">
+      <label>お名前<span class="required">必須</span></label>
+      <input
+        type="text"
+        name="name"
+        placeholder="例：山田 太郎"
+        required
+      >
+    </div>
+
+    <div class="form-group">
+      <label>電話番号<span class="required">必須</span></label>
+      <input
+        type="tel"
+        name="phone"
+        placeholder="例：090-1234-5678"
+        required
+      >
+    </div>
+
+    <div class="form-group">
+      <label>その他・ご要望</label>
+      <textarea
+        name="note"
+        placeholder="ご質問・ご要望などがあればご記入ください"
+      ></textarea>
+    </div>
+  </div>
+
+
+  <div class="loading" id="loading">
+    予約を送信しています……
+  </div>
+
+  <button
+    type="submit"
+    class="submit-btn"
+    id="submitBtn"
+  >
+    予約する
+  </button>
+
+</form>
+
+
+<!-- 予約完了 -->
+<div class="card success" id="success">
+  <h2>予約を受け付けました！</h2>
+
+  <p>
+    ご予約ありがとうございます。
+  </p>
+
+  <p>
+    工場で内容を確認後、予約確定となります。
+  </p>
+
+  <p>
+    しばらくお待ちください。
+  </p>
+</div>
+
+</div>
+
+
+<script>
+
+/*
+====================================
+ここにGASのWebアプリURLを入れる
+====================================
+*/
+
+const GAS_URL =
+  "https://script.google.com/macros/s/AKfycbyDZ_PkMGOBg4KX71t-KGr5wvDnDyTLE54e4MeI2M_uIfs0La9U3EDXOI-v-_IVis0u/exec";
+
+
+/*
+====================================
+メニューによって入力欄を表示
+====================================
+*/
+
+const menuRadios =
+  document.querySelectorAll('input[name="menu"]');
+
+const tireArea =
+  document.getElementById("tireArea");
+
+const oilArea =
+  document.getElementById("oilArea");
+
+function updateMenu() {
+
+  const selected =
+    document.querySelector('input[name="menu"]:checked');
+
+  if (!selected) return;
+
+  if (
+    selected.value === "タイヤ交換" ||
+    selected.value === "タイヤ交換・オイル交換"
+  ) {
+    tireArea.style.display = "block";
+  } else {
+    tireArea.style.display = "none";
+  }
+
+  if (
+    selected.value === "オイル交換" ||
+    selected.value === "タイヤ交換・オイル交換"
+  ) {
+    oilArea.style.display = "block";
+  } else {
+    oilArea.style.display = "none";
+  }
+}
+
+menuRadios.forEach(function(radio) {
+  radio.addEventListener("change", updateMenu);
+});
+
+updateMenu();
+
+
+/*
+====================================
+予約送信
+====================================
+*/
+
+document
+  .getElementById("reservationForm")
+  .addEventListener("submit", async function(e) {
+
+    e.preventDefault();
+
+    if (
+      !GAS_URL ||
+      GAS_URL.includes("ここにあなたの")
+    ) {
+      alert(
+        "GASのWebアプリURLが設定されていません。\n\nHTML内のGAS_URLを設定してください。"
+      );
+      return;
+    }
+
+    const form =
+      new FormData(this);
+
+    const params =
+      new URLSearchParams();
+
+    params.append("action", "create");
+
+    params.append(
+      "menu",
+      form.get("menu") || ""
+    );
+
+    params.append(
+      "tire",
+      form.get("tire") || ""
+    );
+
+    params.append(
+      "oil",
+      form.get("oil") || ""
+    );
+
+    params.append(
+      "mileage",
+      form.get("mileage") || ""
+    );
+
+    params.append(
+      "maker",
+      form.get("maker") || ""
+    );
+
+    params.append(
+      "model",
+      form.get("model") || ""
+    );
+
+    params.append(
+      "plate",
+      form.get("plate") || ""
+    );
+
+    params.append(
+      "d1",
+      form.get("d1") || ""
+    );
+
+    params.append(
+      "t1",
+      form.get("t1") || ""
+    );
+
+    params.append(
+      "d2",
+      form.get("d2") || ""
+    );
+
+    params.append(
+      "t2",
+      form.get("t2") || ""
+    );
+
+    params.append(
+      "d3",
+      form.get("d3") || ""
+    );
+
+    params.append(
+      "t3",
+      form.get("t3") || ""
+    );
+
+    params.append(
+      "name",
+      form.get("name") || ""
+    );
+
+    params.append(
+      "phone",
+      form.get("phone") || ""
+    );
+
+    params.append(
+      "note",
+      form.get("note") || ""
+    );
+
+
+params.append(
+  "lineUserId",
+  lineUserId
+);
+
+    const submitBtn =
+      document.getElementById("submitBtn");
+
+    const loading =
+      document.getElementById("loading");
+
+    submitBtn.disabled = true;
+    loading.style.display = "block";
+
+
+    try {
+
+      const response =
+        await fetch(
+          GAS_URL + "?" + params.toString()
+        );
+
+      const result =
+  await response.json();
+
+if (result.success === true) {
+
+  document
+    .getElementById("reservationForm")
+    .style.display = "none";
+
+  loading.style.display = "none";
+
+  document
+    .getElementById("success")
+    .style.display = "block";
+
+} else {
+
+  throw new Error(
+    result.message || "予約登録に失敗しました"
+  );
+
+}
+
+    } catch(error) {
+
+      console.error(error);
+
+      alert(
+        "予約の送信に失敗しました。\n\n" +
+        "GASのURLや公開設定を確認してください。"
+      );
+
+      submitBtn.disabled = false;
+      loading.style.display = "none";
+    }
+
+  });
+
+</script>
+
+</body>
+</html>
