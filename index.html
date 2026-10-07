@@ -631,6 +631,7 @@ function resetTimeAvailability() {
 }
 
 async function updateTimeAvailability() {
+
   const date = t1DateInput ? t1DateInput.value : "";
 
   if (!date) {
@@ -641,6 +642,7 @@ async function updateTimeAvailability() {
   const selectedMenu =
     document.querySelector('input[name="menu"]:checked');
 
+  // タイヤ交換を含まない場合は空き状況チェック不要
   if (
     !selectedMenu ||
     (
@@ -653,6 +655,7 @@ async function updateTimeAvailability() {
   }
 
   try {
+
     t1TimeInputs.forEach(function(input) {
       input.disabled = true;
     });
@@ -664,18 +667,34 @@ async function updateTimeAvailability() {
 
     const results = await Promise.all(
       Array.from(t1TimeInputs).map(async function(input) {
+
         const url =
           GAS_URL +
           "?action=availability" +
           "&date=" + encodeURIComponent(date) +
-          "&time=" + encodeURIComponent(input.value);
+          "&time=" + encodeURIComponent(input.value) +
+          "&_=" + Date.now();
 
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          cache: "no-store"
+        });
+
         const result = await response.json();
 
-        if (!result.success || !result.availability) {
+        console.log(
+          "予約枠確認:",
+          date,
+          input.value,
+          result
+        );
+
+        if (
+          !result.success ||
+          !result.availability
+        ) {
           throw new Error(
-            result.message || "空き状況を取得できませんでした"
+            result.message ||
+            "空き状況を取得できませんでした"
           );
         }
 
@@ -689,19 +708,44 @@ async function updateTimeAvailability() {
     let fullCount = 0;
 
     results.forEach(function(item) {
+
       const a = item.availability;
 
-      if (a.remaining <= 0) {
+      // GASのavailableを直接使用
+      if (a.available === false) {
+
         fullCount++;
-        setTimeLabelStatus(item.input, "予約不可", true, false);
-      } else if (a.remaining === 1) {
-        setTimeLabelStatus(item.input, "残り1枠", false, true);
+
+        setTimeLabelStatus(
+          item.input,
+          "予約不可",
+          true,
+          false
+        );
+
+      } else if (Number(a.remaining) === 1) {
+
+        setTimeLabelStatus(
+          item.input,
+          "残り1枠",
+          false,
+          true
+        );
+
       } else {
-        setTimeLabelStatus(item.input, "残り2枠", false, false);
+
+        setTimeLabelStatus(
+          item.input,
+          "残り" + Number(a.remaining) + "枠",
+          false,
+          false
+        );
       }
+
     });
 
     if (t1AvailabilityMessage) {
+
       t1AvailabilityMessage.textContent =
         fullCount === results.length
           ? "この日は予約枠がすべて埋まっています。別の日を選択してください。"
@@ -709,16 +753,21 @@ async function updateTimeAvailability() {
     }
 
   } catch (error) {
-    console.error("予約枠確認エラー:", error);
+
+    console.error(
+      "予約枠確認エラー:",
+      error
+    );
+
     resetTimeAvailability();
 
     if (t1AvailabilityMessage) {
+
       t1AvailabilityMessage.textContent =
         "空き状況を確認できませんでした。予約送信時に再確認します。";
     }
   }
 }
-
 if (t1DateInput) {
   t1DateInput.addEventListener("change", updateTimeAvailability);
 }
@@ -769,7 +818,7 @@ document
         if (
           !availabilityResult.success ||
           !availabilityResult.availability ||
-          availabilityResult.availability.remaining <= 0
+          availabilityResult.availability.remaining === false
         ) {
           await updateTimeAvailability();
 
