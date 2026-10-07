@@ -395,6 +395,8 @@ textarea {
         </div>
 
       </div>
+
+      <div class="note" id="t1AvailabilityMessage"></div>
     </div>
 
 
@@ -569,10 +571,157 @@ function updateMenu() {
 }
 
 menuRadios.forEach(function(radio) {
-  radio.addEventListener("change", updateMenu);
+  radio.addEventListener("change", function() {
+    updateMenu();
+    updateTimeAvailability();
+  });
 });
 
 updateMenu();
+
+
+
+/*
+====================================
+第1希望時間の空き状況
+1枠につき最大2台
+====================================
+*/
+
+const t1DateInput = document.querySelector('input[name="d1"]');
+const t1TimeInputs = document.querySelectorAll('input[name="t1"]');
+const t1AvailabilityMessage =
+  document.getElementById("t1AvailabilityMessage");
+
+function setTimeLabelStatus(input, text, full, one) {
+  const label = document.querySelector('label[for="' + input.id + '"]');
+  if (!label) return;
+
+  label.classList.remove("slot-full", "slot-one");
+
+  const oldStatus = label.querySelector(".slot-status");
+  if (oldStatus) oldStatus.remove();
+
+  if (full) {
+    input.disabled = true;
+    input.checked = false;
+    label.classList.add("slot-full");
+  } else {
+    input.disabled = false;
+    if (one) label.classList.add("slot-one");
+  }
+
+  if (text) {
+    const status = document.createElement("span");
+    status.className = "slot-status";
+    status.textContent = text;
+    label.appendChild(status);
+  }
+}
+
+function resetTimeAvailability() {
+  t1TimeInputs.forEach(function(input) {
+    input.disabled = false;
+    setTimeLabelStatus(input, "", false, false);
+  });
+
+  if (t1AvailabilityMessage) {
+    t1AvailabilityMessage.textContent = "";
+  }
+}
+
+async function updateTimeAvailability() {
+  const date = t1DateInput ? t1DateInput.value : "";
+
+  if (!date) {
+    resetTimeAvailability();
+    return;
+  }
+
+  const selectedMenu =
+    document.querySelector('input[name="menu"]:checked');
+
+  if (
+    !selectedMenu ||
+    (
+      selectedMenu.value !== "タイヤ交換" &&
+      selectedMenu.value !== "タイヤ交換・オイル交換"
+    )
+  ) {
+    resetTimeAvailability();
+    return;
+  }
+
+  try {
+    t1TimeInputs.forEach(function(input) {
+      input.disabled = true;
+    });
+
+    if (t1AvailabilityMessage) {
+      t1AvailabilityMessage.textContent =
+        "空き状況を確認しています……";
+    }
+
+    const results = await Promise.all(
+      Array.from(t1TimeInputs).map(async function(input) {
+        const url =
+          GAS_URL +
+          "?action=availability" +
+          "&date=" + encodeURIComponent(date) +
+          "&time=" + encodeURIComponent(input.value);
+
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (!result.success || !result.availability) {
+          throw new Error(
+            result.message || "空き状況を取得できませんでした"
+          );
+        }
+
+        return {
+          input: input,
+          availability: result.availability
+        };
+      })
+    );
+
+    let fullCount = 0;
+
+    results.forEach(function(item) {
+      const a = item.availability;
+
+      if (a.remaining <= 0) {
+        fullCount++;
+        setTimeLabelStatus(item.input, "予約不可", true, false);
+      } else if (a.remaining === 1) {
+        setTimeLabelStatus(item.input, "残り1枠", false, true);
+      } else {
+        setTimeLabelStatus(item.input, "残り2枠", false, false);
+      }
+    });
+
+    if (t1AvailabilityMessage) {
+      t1AvailabilityMessage.textContent =
+        fullCount === results.length
+          ? "この日は予約枠がすべて埋まっています。別の日を選択してください。"
+          : "空き状況は自動更新されます。";
+    }
+
+  } catch (error) {
+    console.error("予約枠確認エラー:", error);
+    resetTimeAvailability();
+
+    if (t1AvailabilityMessage) {
+      t1AvailabilityMessage.textContent =
+        "空き状況を確認できませんでした。予約送信時に再確認します。";
+    }
+  }
+}
+
+if (t1DateInput) {
+  t1DateInput.addEventListener("change", updateTimeAvailability);
+}
 
 
 /*
@@ -599,6 +748,59 @@ document
 
     const form =
       new FormData(this);
+
+    // 送信直前にも空き状況を再確認
+    try {
+      const selectedT1 = form.get("t1") || "";
+      const selectedD1 = form.get("d1") || "";
+
+      if (selectedD1 && selectedT1) {
+        const availabilityResponse =
+          await fetch(
+            GAS_URL +
+            "?action=availability" +
+            "&date=" + encodeURIComponent(selectedD1) +
+            "&time=" + encodeURIComponent(selectedT1)
+          );
+
+        const availabilityResult =
+          await availabilityResponse.json();
+
+        if (
+          !availabilityResult.success ||
+          !availabilityResult.availability ||
+          availabilityResult.availability.remaining <= 0
+        ) {
+          await updateTimeAvailability();
+
+          throw new Error(
+            "申し訳ありません。選択した時間帯は直前に予約がいっぱいになりました。別の時間を選択してください。"
+          );
+        }
+      }
+
+    } catch (availabilityError) {
+      console.error(
+        "送信前の空き状況確認エラー:",
+        availabilityError
+      );
+
+      if (
+        availabilityError.message &&
+        availabilityError.message.includes("直前に予約がいっぱい")
+      ) {
+        alert(availabilityError.message);
+      } else {
+        alert(
+          "予約枠の空き状況を確認できませんでした。\n\n" +
+          "通信状態を確認して、もう一度お試しください。"
+        );
+      }
+
+      submitBtn.disabled = false;
+      loading.style.display = "none";
+      return;
+    }
 
     const params =
       new URLSearchParams();
@@ -737,7 +939,7 @@ if (result.success === true) {
 
       alert(
         "予約の送信に失敗しました。\n\n" +
-        "GASのURLや公開設定を確認してください。"
+        (error.message || "通信エラーが発生しました。")
       );
 
       submitBtn.disabled = false;
